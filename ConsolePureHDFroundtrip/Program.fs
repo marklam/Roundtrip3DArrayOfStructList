@@ -32,8 +32,9 @@ let peaks =
                         (fun k ->
                             let count =
                                 match r.NextDouble() with
-                                | x when x < 0.75 -> 0
-                                | x when x < 0.95 -> 1
+                                | x when x < 0.85 -> 100
+                                | x when x < 0.90 -> 300
+                                | x when x < 0.95 -> 400
                                 | _ -> 2
 
                             Array.init count (fun _ -> { mz = r.NextDouble(); ic = r.NextSingle() })
