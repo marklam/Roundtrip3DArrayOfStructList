@@ -3,6 +3,7 @@ open System.Runtime.InteropServices
 open PureHDF
 open PureHDF.Selections
 open PureHDF.VOL.Native
+open PureHDF.Filters
 
 let file = System.IO.FileInfo(@"c:\tmp\roundtrip.h5")
 let datasetName = "peaks"
@@ -37,7 +38,10 @@ let peaks =
                                 | x when x < 0.95 -> 400
                                 | _ -> 2
 
-                            Array.init count (fun _ -> { mz = r.NextDouble(); ic = r.NextSingle() })
+                            if count = 0 then
+                                Unchecked.defaultof<_>
+                            else
+                                Array.init count (fun _ -> { mz = r.NextDouble(); ic = r.NextSingle() })
                         )
                 )
         )
@@ -47,11 +51,11 @@ let dim2ChunkSize = 348
 let dim3ChunkSize = 3
 let chunkDims = [| uint32 dim1ChunkSize; uint32 dim2ChunkSize; uint32 dim3ChunkSize |]
 
-let cache =
-    PureHDF.VOL.Native.SimpleChunkCache(1024*1024, byteCount=3UL*1024UL*1024UL*1024UL)
-    :>IWritingChunkCache
+//let cache =
+//    PureHDF.VOL.Native.SimpleChunkCache(1024*1024, byteCount=3UL*1024UL*1024UL*1024UL)
+//    :>IWritingChunkCache
 
-let datasetCreation = VOL.Native.H5DatasetCreation(cache, ResizeArray())
+let datasetCreation = VOL.Native.H5DatasetCreation(Filters = ResizeArray[H5Filter(DeflateFilter.Id)])
 let dataset = H5Dataset<Peak[][,,]>(dims, chunkDims, datasetCreation = datasetCreation)
 
 let hdfFile = H5File()
