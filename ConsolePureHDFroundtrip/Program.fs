@@ -2,7 +2,6 @@
 open System.Runtime.InteropServices
 open PureHDF
 open PureHDF.Selections
-open PureHDF.VOL.Native
 open PureHDF.Filters
 
 let file = System.IO.FileInfo(@"c:\tmp\roundtrip.h5")
@@ -33,29 +32,21 @@ let peaks =
                         (fun k ->
                             let count =
                                 match r.NextDouble() with
-                                | x when x < 0.85 -> 100
-                                | x when x < 0.90 -> 300
-                                | x when x < 0.95 -> 400
+                                | x when x < 0.85 -> 0
+                                | x when x < 0.95 -> 1
                                 | _ -> 2
 
-                            if count = 0 then
-                                Unchecked.defaultof<_>
-                            else
-                                Array.init count (fun _ -> { mz = r.NextDouble(); ic = r.NextSingle() })
+                            Array.init count (fun _ -> { mz = r.NextDouble(); ic = r.NextSingle() })
                         )
                 )
         )
 
-let dim1ChunkSize = 8
-let dim2ChunkSize = 348
-let dim3ChunkSize = 3
+let dim1ChunkSize = 1
+let dim2ChunkSize = 165
+let dim3ChunkSize = 16
 let chunkDims = [| uint32 dim1ChunkSize; uint32 dim2ChunkSize; uint32 dim3ChunkSize |]
 
-//let cache =
-//    PureHDF.VOL.Native.SimpleChunkCache(1024*1024, byteCount=3UL*1024UL*1024UL*1024UL)
-//    :>IWritingChunkCache
-
-let datasetCreation = VOL.Native.H5DatasetCreation(Filters = ResizeArray[H5Filter(DeflateFilter.Id)])
+let datasetCreation = VOL.Native.H5DatasetCreation(Filters = ResizeArray[H5Filter(ShuffleFilter.Id)])
 let dataset = H5Dataset<Peak[][,,]>(dims, chunkDims, datasetCreation = datasetCreation)
 
 let hdfFile = H5File()
@@ -64,13 +55,18 @@ hdfFile[datasetName] <- dataset
 let stream = file.Create()
 let writer = hdfFile.BeginWrite(stream, H5WriteOptions(IncludeStructProperties=true))
 
-for i = 0 to dim1Size - 1 do
-    for j = 0 to dim2Size - 1 do
-        let start = [| uint64 i; uint64 j; 0UL |]
-        let count = [| 1UL;      1UL;      uint64 dim3Size |]
-        let data = Array3D.init 1 1 dim3Size (fun _ _ k -> peaks[i].[j].[k]) // A 3D array with only the i,j,* entries (the variable-length Peak arrays)
-        let fileSelection = HyperslabSelection(3, start, count)
-        writer.Write<Peak[][,,]>(dataset, data, fileSelection = fileSelection)
+for i in 0 .. dim1ChunkSize .. dim1Size - 1 do
+    let ni = min dim1ChunkSize (dim1Size - i)
+    for j in 0 .. dim2ChunkSize .. dim2Size - 1 do
+        let nj = min dim2ChunkSize (dim2Size - j)
+        for k in 0 .. dim3ChunkSize .. dim3Size - 1 do
+            let nk = min dim3ChunkSize (dim3Size - k)
+
+            let start = [| uint64 i; uint64 j; uint64 k |]
+            let count = [| uint64 ni; uint64 nj; uint64 nk |]
+            let data = Array3D.init ni nj nk (fun ii jj kk -> peaks[i+ii].[j+jj].[k+kk])
+            let fileSelection = HyperslabSelection(3, start, count)
+            writer.Write<Peak[][,,]>(dataset, data, fileSelection = fileSelection)
 
 writer.Dispose()
 stream.Close()
