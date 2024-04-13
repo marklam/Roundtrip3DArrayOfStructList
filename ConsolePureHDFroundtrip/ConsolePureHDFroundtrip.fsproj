@@ -10,7 +10,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="PureHDF" Version="1.0.0-beta.11" />
+    <PackageReference Include="PureHDF" Version="1.0.0-beta.12" />
+    <PackageReference Include="PureHDF.Filters.Blosc2" Version="1.0.0-beta.12" />
   </ItemGroup>
 
 </Project>

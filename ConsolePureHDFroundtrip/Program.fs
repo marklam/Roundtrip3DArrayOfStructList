@@ -3,9 +3,12 @@ open System.Runtime.InteropServices
 open PureHDF
 open PureHDF.Selections
 open PureHDF.Filters
+open System.Collections.Generic
 
 let file = System.IO.FileInfo(@"c:\tmp\roundtrip.h5")
 let datasetName = "peaks"
+
+H5Filter.Register(Blosc2Filter())
 
 [<Struct; StructLayout(LayoutKind.Sequential, Pack = 1)>]
 type Peak =
@@ -16,7 +19,7 @@ type Peak =
 
 let r = new Random(123)
 
-let dim1Size = 11
+let dim1Size = 26
 let dim2Size = 953
 let dim3Size = 17
 let dims = [| uint64 dim1Size; uint64 dim2Size; uint64 dim3Size |]
@@ -41,12 +44,12 @@ let peaks =
                 )
         )
 
-let dim1ChunkSize = 1
-let dim2ChunkSize = 165
-let dim3ChunkSize = 16
+let dim1ChunkSize = 26
+let dim2ChunkSize = 174
+let dim3ChunkSize = 3
 let chunkDims = [| uint32 dim1ChunkSize; uint32 dim2ChunkSize; uint32 dim3ChunkSize |]
 
-let datasetCreation = VOL.Native.H5DatasetCreation(Filters = ResizeArray[H5Filter(ShuffleFilter.Id)])
+let datasetCreation = VOL.Native.H5DatasetCreation(Filters = ResizeArray[H5Filter(Blosc2Filter.Id, Dictionary [KeyValuePair(Blosc2Filter.COMPRESSION_LEVEL, box 0)])])
 let dataset = H5Dataset<Peak[][,,]>(dims, chunkDims, datasetCreation = datasetCreation)
 
 let hdfFile = H5File()
